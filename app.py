@@ -9,6 +9,7 @@ import zipfile
 from io import BytesIO
 from PIL import Image
 import io
+import csv
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this'
@@ -107,9 +108,21 @@ def extract_tables_from_pdf(pdf_path):
                                 else:
                                     clean_headers.append(str(header).strip())
                             
+                            # Process data - replace actual newlines with \n escape sequences
+                            clean_data = []
+                            for row in data:
+                                clean_row = []
+                                for cell in row:
+                                    if cell is None:
+                                        clean_row.append('')
+                                    else:
+                                        # Replace actual newlines with \n escape sequences
+                                        clean_row.append(str(cell).replace('\n', '\\n'))
+                                clean_data.append(clean_row)
+                            
                             # Create DataFrame
-                            if data:  # Make sure we have data rows
-                                df = pd.DataFrame(data, columns=clean_headers)
+                            if clean_data:  # Make sure we have data rows
+                                df = pd.DataFrame(clean_data, columns=clean_headers)
                                 
                                 # Clean the data - remove completely empty rows
                                 df = df.dropna(how='all')
@@ -142,7 +155,8 @@ def save_tables_as_csv(tables, output_folder, base_filename):
             
             csv_filename = f"{base_filename}_table_{i+1}{page_info}.csv"
             csv_path = os.path.join(output_folder, csv_filename)
-            table.to_csv(csv_path, index=False)
+            table.to_csv(csv_path, index=False, quoting=csv.QUOTE_NONNUMERIC,
+                      escapechar='\\', lineterminator='\n')
             csv_files.append(csv_path)
     
     return csv_files
